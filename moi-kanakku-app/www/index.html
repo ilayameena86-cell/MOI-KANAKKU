@@ -1,0 +1,678 @@
+<!doctype html>
+<html lang="ta">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>மொய் கணக்கு</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Tamil:wght@400;500;600&family=Noto+Serif+Tamil:wght@600;700&display=swap">
+<style>
+/* Layout: a single-column ledger book. Event header and totals on top, entry form, then the numbered list (வ.எண்). */
+:root {
+  --bg: #F2F5F1;
+  --surface: #FFFFFF;
+  --fg: #17231C;
+  --muted: #5B6B60;
+  --line: #D5DED6;
+  --accent: #A3192B;
+  --accent-fg: #FFFFFF;
+  --leaf: #1F5B3E;
+  --leaf-soft: #E1EFE6;
+  --warn-soft: #FBEAD0;
+  --warn-fg: #6B4210;
+  --font-display: "Noto Serif Tamil", "Latha", serif;
+  --font-body: "Noto Sans Tamil", "Latha", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0F1712; --surface: #17221A; --fg: #E6EFE8; --muted: #92A397; --line: #28372C;
+    --accent: #E0707D; --accent-fg: #1A0A0C; --leaf: #7CC79C; --leaf-soft: #1B2E22;
+    --warn-soft: #3A2E17; --warn-fg: #F0D59E; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0F1712; --surface: #17221A; --fg: #E6EFE8; --muted: #92A397; --line: #28372C;
+  --accent: #E0707D; --accent-fg: #1A0A0C; --leaf: #7CC79C; --leaf-soft: #1B2E22;
+  --warn-soft: #3A2E17; --warn-fg: #F0D59E; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 16px; line-height: 1.55;
+  padding-block: 20px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+h1, h2 { font-family: var(--font-display); text-wrap: balance; margin: 0; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.num { font-variant-numeric: tabular-nums; }
+
+.head { display: flex; flex-direction: column; gap: 8px; }
+.eyebrow { font-size: 13px; letter-spacing: .04em; color: var(--muted); }
+.title-input {
+  font-family: var(--font-display); font-weight: 700; font-size: 26px; line-height: 1.3;
+  background: transparent; border: 0; border-bottom: 2px dashed var(--line); padding: 4px 0; width: 100%;
+}
+.date-input { background: transparent; border: 0; border-bottom: 1px solid var(--line); padding: 2px 0; color: var(--muted); max-width: 12rem; }
+
+.total {
+  background: var(--leaf); color: #fff; border-radius: 14px; padding: 18px 18px 16px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+:root[data-theme="dark"] .total { color: #0B1A11; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .total { color: #0B1A11; } }
+.total .label { font-size: 14px; opacity: .85; }
+.total .big { font-family: var(--font-display); font-weight: 700; font-size: 40px; line-height: 1.1; }
+.total .split { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; border-top: 1px solid currentColor; padding-top: 12px; }
+.total .split div { min-width: 0; }
+.total .split b { display: block; font-size: 17px; font-weight: 600; }
+.total .split span { font-size: 12.5px; opacity: .85; }
+
+.notice {
+  background: var(--warn-soft); color: var(--warn-fg); border-radius: 10px; padding: 10px 12px;
+  display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; font-size: 14px;
+}
+.btn {
+  border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 9px 14px; font-weight: 500; min-height: 44px;
+}
+.btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font-weight: 600; }
+.btn.small { min-height: 36px; padding: 5px 11px; font-size: 14px; }
+.btn.danger { color: var(--accent); border-color: var(--accent); }
+.btn.danger.armed { background: var(--accent); color: var(--accent-fg); }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+.card h2 { font-size: 19px; margin-bottom: 12px; }
+form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.field.full { grid-column: 1 / -1; }
+.field label { font-size: 13.5px; color: var(--muted); }
+.field input, .field select {
+  background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; min-height: 46px; width: 100%; min-width: 0;
+}
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  border: 1px solid var(--line); background: var(--bg); border-radius: 999px; padding: 6px 14px; font-weight: 500; min-height: 38px;
+}
+.chip:hover { border-color: var(--leaf); }
+:root { --paper: #FFFFFF; --ink: #151515; }
+.field label.check { display: flex; gap: 10px; align-items: center; font-size: 15px; color: var(--fg); }
+.field label.check input { width: 22px; height: 22px; min-height: 0; padding: 0; accent-color: var(--accent); }
+.slip { background: var(--paper); color: var(--ink); border: 1px solid var(--line); border-radius: 4px; padding: 18px 16px; max-width: 360px; margin: 0 auto 14px; display: flex; flex-direction: column; gap: 6px; text-align: center; }
+.slip .s-title { font-family: var(--font-display); font-weight: 700; font-size: 20px; overflow-wrap: anywhere; }
+.slip .s-head { font-weight: 600; font-size: 17px; }
+.slip .s-sub { font-size: 13px; color: #444444; }
+.slip .s-rule { border: 0; border-top: 2px dashed #999999; margin: 6px 0; width: 100%; }
+.slip .s-row { display: grid; grid-template-columns: 4.5rem minmax(0, 1fr); gap: 8px; text-align: left; font-size: 15px; }
+.slip .s-row span:first-child { color: #444444; }
+.slip .s-row span:last-child { font-weight: 600; overflow-wrap: anywhere; }
+.slip .s-amt { font-weight: 700; font-size: 34px; line-height: 1.2; }
+.slip .s-thanks { font-family: var(--font-display); font-weight: 600; }
+.receipt a.btn { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; color: var(--fg); }
+.receipt .btn.wa { background: var(--leaf-soft); color: var(--leaf); border-color: var(--leaf); font-weight: 600; }
+.receipt .btn.primary { color: var(--accent-fg); }
+.share { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.share .btn { display: flex; align-items: center; justify-content: center; text-align: center; text-decoration: none; color: var(--fg); min-width: 0; }
+.share .btn.primary { color: var(--accent-fg); }
+.share .btn.wa { background: var(--leaf-soft); color: var(--leaf); border-color: var(--leaf); font-weight: 600; }
+.chips.places .chip { min-height: 34px; padding: 4px 12px; font-size: 14px; }
+.chips.places:empty { display: none; }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.err { color: var(--accent); font-size: 14px; min-height: 1.2em; }
+
+.toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; }
+.toolbar input, .toolbar select { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; min-height: 46px; min-width: 0; width: 100%; }
+
+.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.row { display: grid; grid-template-columns: 2.4rem minmax(0, 1fr) auto; gap: 4px 10px; padding: 14px 4px; border-bottom: 1px solid var(--line); align-items: start; }
+.row:first-child { border-top: 1px solid var(--line); }
+.sno { color: var(--muted); font-size: 14px; padding-top: 2px; }
+.who { min-width: 0; }
+.who b { font-weight: 600; overflow-wrap: anywhere; }
+.who .sub { color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
+.amt { text-align: right; font-weight: 600; font-size: 18px; }
+.pill { display: inline-block; font-size: 12.5px; background: var(--leaf-soft); color: var(--leaf); border-radius: 999px; padding: 1px 10px; margin-top: 4px; }
+.row-actions { grid-column: 2 / -1; display: flex; gap: 8px; margin-top: 6px; }
+.empty { text-align: center; color: var(--muted); padding: 28px 8px; }
+.empty b { display: block; color: var(--fg); font-family: var(--font-display); font-size: 18px; margin-bottom: 4px; }
+
+details.card summary { cursor: pointer; font-family: var(--font-display); font-weight: 600; font-size: 17px; }
+details .tools { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+textarea { width: 100%; min-height: 110px; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px; font-size: 13px; font-family: ui-monospace, monospace; }
+.hint { color: var(--muted); font-size: 14px; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(20px + env(safe-area-inset-bottom, 0px)); background: var(--fg); color: var(--bg); padding: 10px 18px; border-radius: 999px; font-size: 14px; max-width: calc(100% - 32px); }
+@media (max-width: 420px) { .total .big { font-size: 34px; } .title-input { font-size: 22px; } }
+@media (prefers-reduced-motion: no-preference) { .btn, .chip { transition: background-color .15s, border-color .15s; } }
+[hidden]{display:none!important}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="head">
+    <div class="eyebrow">மொய் கணக்கு நோட்டு</div>
+    <input id="evTitle" class="title-input" type="text" placeholder="விழா பெயர் (எ.கா: திருமண விழா)" aria-label="விழா பெயர்">
+    <input id="evDate" class="date-input" type="date" aria-label="விழா நாள்">
+  </header>
+
+  <section class="total" aria-live="polite">
+    <div>
+      <div class="label">மொத்த மொய்த் தொகை</div>
+      <div class="big num" id="tTotal">₹0</div>
+    </div>
+    <div class="split">
+      <div><b class="num" id="tCount">0</b><span>பதிவுகள்</span></div>
+      <div><b class="num" id="tCash">₹0</b><span>ரொக்கம்</span></div>
+      <div><b class="num" id="tOnline">₹0</b><span>GPay / காசோலை</span></div>
+    </div>
+  </section>
+
+  <section class="share" aria-label="பகிர்வு">
+    <button class="btn primary" id="xlsBtn" type="button">Excel பதிவிறக்கு</button>
+    <a class="btn wa" id="waLink" href="https://wa.me/" target="_blank" rel="noopener">WhatsApp-இல் பகிர்</a>
+  </section>
+
+  <div class="notice" id="sampleNote" hidden>
+    <span>இவை மாதிரிப் பதிவுகள். உங்கள் முதல் பதிவைச் சேர்த்தவுடன் தானாக நீங்கும்.</span>
+    <button class="btn small" id="clearSample" type="button">இப்போதே நீக்கு</button>
+  </div>
+
+  <section class="card">
+    <h2 id="formTitle">புதிய மொய் பதிவு</h2>
+    <form id="form" autocomplete="off" novalidate>
+      <div class="field full"><label for="fName">பெயர்</label><input id="fName" type="text" placeholder="மொய் வைத்தவர் பெயர்"></div>
+      <div class="field full">
+        <label for="fPlace">ஊர்</label>
+        <input id="fPlace" type="text" list="placeList" placeholder="தேர்ந்தெடு அல்லது புதிய ஊர் எழுது">
+        <datalist id="placeList"></datalist>
+        <div class="chips places" id="placeChips" aria-label="முன்பு பதிந்த ஊர்கள்"></div>
+      </div>
+      <div class="field"><label for="fRel">உறவு</label><input id="fRel" type="text" placeholder="மாமா, நண்பர்..."></div>
+      <div class="field"><label for="fMode">முறை</label>
+        <select id="fMode"><option>ரொக்கம்</option><option>GPay / UPI</option><option>காசோலை</option><option>பொருள்</option></select>
+      </div>
+      <div class="field full">
+        <label for="fAmt">தொகை (₹)</label>
+        <input id="fAmt" type="number" inputmode="numeric" min="0" placeholder="0">
+        <div class="chips" id="chips" aria-label="விரைவுத் தொகை"></div>
+      </div>
+      <div class="field full"><label for="fNote">குறிப்பு</label><input id="fNote" type="text" placeholder="விருப்பமானால்"></div>
+      <div class="field full"><label class="check" for="fReceipt"><input type="checkbox" id="fReceipt" checked> பதிவுக்குப் பிறகு ரசீது காட்டு</label></div>
+      <div class="field full"><div class="err" id="err" role="alert"></div></div>
+      <div class="field full actions">
+        <button class="btn primary" id="saveBtn" type="submit">பதிவு செய்</button>
+        <button class="btn" id="cancelBtn" type="button" hidden>ரத்து</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="card receipt" id="receipt" hidden>
+    <h2>ரசீது</h2>
+    <div class="slip" id="slip"></div>
+    <div class="actions">
+      <button class="btn primary" id="rcPng" type="button">JPG படமாக அனுப்பு / சேமி</button>
+      <a class="btn wa" id="waReceipt" href="https://wa.me/" target="_blank" rel="noopener">உரையாக WhatsApp-இல் அனுப்பு</a>
+      <button class="btn" id="rcClose" type="button">மூடு</button>
+    </div>
+<p class="hint" id="rcHint">"JPG படமாக அனுப்பு" தொட்டு உறுதி செய்தால் ரசீது JPG கோப்பாகச் சேமிக்கப்படும். iPhone-இல் share திரை திறக்கும், அதில் WhatsApp-ஐத் தேர்ந்தெடுங்கள். Android-இல் சேமித்த பிறகு WhatsApp-இல் 📎 → Gallery வழியாக இணைக்கவும். அதே படத்தை Bluetooth printer app-இலும் அச்சிடலாம்.</p>
+  </section>
+
+  <section class="card">
+    <h2>பதிவுகள் <span class="num" id="listCount" style="font-family:var(--font-body);font-weight:400;font-size:15px;color:var(--muted)"></span></h2>
+    <div class="toolbar">
+      <input id="q" type="search" placeholder="பெயர் அல்லது ஊர் தேடு" aria-label="தேடு">
+      <select id="fFilter" aria-label="முறை வடிகட்டு"><option value="">அனைத்தும்</option><option>ரொக்கம்</option><option>GPay / UPI</option><option>காசோலை</option><option>பொருள்</option></select>
+    </div>
+    <ul class="list" id="list"></ul>
+  </section>
+
+  <details class="card">
+    <summary>ஏற்றுமதி மற்றும் காப்புப் பிரதி</summary>
+    <div class="tools">
+      <p class="hint">தரவு இந்த phone-இன் browser-இல் மட்டுமே சேமிக்கப்படும். விழா முடிந்ததும் கீழே உள்ள காப்புப் பிரதியை நகலெடுத்து WhatsApp அல்லது Notes-இல் சேமியுங்கள்.</p>
+      <div class="actions">
+        <button class="btn" id="copyCsv" type="button">Excel (CSV) நகலெடு</button>
+        <button class="btn" id="copyBackup" type="button">காப்புப் பிரதி நகலெடு</button>
+      </div>
+      <label for="restoreBox" class="hint">காப்புப் பிரதியை மீட்க இங்கே ஒட்டுங்கள்</label>
+      <textarea id="restoreBox" placeholder="{ ... }"></textarea>
+      <div class="actions">
+        <button class="btn" id="restoreBtn" type="button">மீட்டெடு</button>
+        <button class="btn danger" id="wipeBtn" type="button">அனைத்தையும் அழி</button>
+      </div>
+      <div class="err" id="toolErr" role="alert"></div>
+    </div>
+  </details>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script src="xlsx.full.min.js"></script>
+<script>
+(function () {
+  var KEY = "moi-kanakku-v1";
+  var QUICK = [101, 251, 501, 1001, 2001, 5001];
+  var state = { event: { title: "", date: "" }, entries: [] };
+  var editId = null, armedId = null, wipeArmed = false, toastTimer = null;
+
+  function $(id) { return document.getElementById(id); }
+  function load() {
+    var raw = null;
+    try { raw = localStorage.getItem(KEY); } catch (e) {}
+    if (raw) {
+      try { var s = JSON.parse(raw); if (s && Array.isArray(s.entries)) { state = s; return; } } catch (e) {}
+    }
+    var t = Date.now();
+    state = {
+      event: { title: "திருமண விழா (மாதிரி)", date: "" },
+      entries: [
+        { id: "s1", name: "முருகன்", place: "கோவில்பட்டி", rel: "மாமா", amt: 2001, mode: "ரொக்கம்", note: "", ts: t - 3, sample: true },
+        { id: "s2", name: "செல்வி", place: "திருநெல்வேலி", rel: "அத்தை", amt: 1001, mode: "GPay / UPI", note: "", ts: t - 2, sample: true },
+        { id: "s3", name: "ராஜேஷ்", place: "மதுரை", rel: "நண்பர்", amt: 501, mode: "ரொக்கம்", note: "குடும்பத்துடன் வந்தனர்", ts: t - 1, sample: true }
+      ]
+    };
+  }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+  function money(n) { return "₹" + Number(n || 0).toLocaleString("en-IN"); }
+  function toast(msg) {
+    var t = $("toast"); t.textContent = msg; t.hidden = false;
+    clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.hidden = true; }, 2400);
+  }
+  function el(tag, cls, text) { var n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; }
+
+  // Town names: every town typed before is offered again, most used first.
+  function placeList() {
+    var cnt = {};
+    state.entries.forEach(function (e) { if (e.place) cnt[e.place] = (cnt[e.place] || 0) + 1; });
+    (state.places || []).forEach(function (p) { if (!(p in cnt)) cnt[p] = 0; });
+    return Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a] || a.localeCompare(b, "ta"); });
+  }
+  function rememberPlace(p) {
+    if (!p) return;
+    if (!Array.isArray(state.places)) state.places = [];
+    if (state.places.indexOf(p) === -1) state.places.push(p);
+  }
+  function renderPlaces() {
+    var list = placeList(), dl = $("placeList"), box = $("placeChips");
+    dl.textContent = ""; box.textContent = "";
+    list.forEach(function (p) { var o = document.createElement("option"); o.value = p; dl.appendChild(o); });
+    list.slice(0, 8).forEach(function (p) {
+      var b = el("button", "chip", p); b.type = "button";
+      b.addEventListener("click", function () { $("fPlace").value = p; $("fRel").focus(); });
+      box.appendChild(b);
+    });
+  }
+
+  function totals() {
+    var total = 0, cash = 0, online = 0;
+    state.entries.forEach(function (e) {
+      total += e.amt;
+      if (e.mode === "ரொக்கம்") cash += e.amt; else if (e.mode !== "பொருள்") online += e.amt;
+    });
+    $("tTotal").textContent = money(total);
+    $("tCount").textContent = state.entries.length;
+    $("tCash").textContent = money(cash);
+    $("tOnline").textContent = money(online);
+  }
+
+  function render() {
+    totals();
+    renderPlaces();
+    updateShare();
+    if (rcId) {
+      if (state.entries.some(function (x) { return x.id === rcId; })) { showReceipt(rcId, false); }
+      else { rcId = null; $("receipt").hidden = true; }
+    }
+    $("sampleNote").hidden =!state.entries.some(function (e) { return e.sample; });
+    var q = $("q").value.trim().toLowerCase(), f = $("fFilter").value;
+    // serial number follows the order entries were written in the book
+    var ordered = state.entries.slice().sort(function (a, b) { return a.ts - b.ts; });
+    var rows = ordered.map(function (e, i) { return { e: e, no: i + 1 }; }).filter(function (r) {
+      if (f && r.e.mode !== f) return false;
+      if (!q) return true;
+      return (r.e.name + " " + r.e.place + " " + r.e.rel).toLowerCase().indexOf(q) !== -1;
+    }).reverse();
+    $("listCount").textContent = rows.length === state.entries.length ? "(" + rows.length + ")" : "(" + rows.length + " / " + state.entries.length + ")";
+    var ul = $("list"); ul.textContent = "";
+    if (!rows.length) {
+      var li = el("li", "empty");
+      li.appendChild(el("b", "", state.entries.length ? "பொருந்தும் பதிவு இல்லை" : "இன்னும் பதிவுகள் இல்லை"));
+      li.appendChild(document.createTextNode(state.entries.length ? "தேடலை மாற்றிப் பாருங்கள்." : "மேலே உள்ள படிவத்தில் முதல் மொய்யைச் சேர்க்கவும்."));
+      ul.appendChild(li); return;
+    }
+    rows.forEach(function (r) {
+      var e = r.e, li = el("li", "row");
+      li.appendChild(el("div", "sno num", String(r.no)));
+      var who = el("div", "who");
+      who.appendChild(el("b", "", e.name));
+      var sub = [e.place, e.rel].filter(Boolean).join(" · ");
+      if (sub) who.appendChild(el("div", "sub", sub));
+      if (e.note) who.appendChild(el("div", "sub", e.note));
+      who.appendChild(el("span", "pill", e.mode));
+      li.appendChild(who);
+      li.appendChild(el("div", "amt num", money(e.amt)));
+      var act = el("div", "row-actions");
+      var ed = el("button", "btn small", "திருத்து"); ed.type = "button";
+      ed.addEventListener("click", function () { startEdit(e.id); });
+      var del = el("button", "btn small danger" + (armedId === e.id ? " armed" : ""), armedId === e.id ? "உறுதி: நீக்கு" : "நீக்கு"); del.type = "button";
+      del.addEventListener("click", function () {
+        if (armedId === e.id) {
+          state.entries = state.entries.filter(function (x) { return x.id !== e.id; });
+          armedId = null; save(); render(); toast("பதிவு நீக்கப்பட்டது");
+        } else { armedId = e.id; render(); }
+      });
+      var rc = el("button", "btn small", "ரசீது"); rc.type = "button";
+      rc.addEventListener("click", function () { showReceipt(e.id, true); });
+      act.appendChild(rc); act.appendChild(ed); act.appendChild(del); li.appendChild(act);
+      ul.appendChild(li);
+    });
+  }
+
+  function resetForm() {
+    editId = null; $("form").reset(); $("err").textContent = "";
+    $("fReceipt").checked = state.receiptOn !== false;
+    $("formTitle").textContent = "புதிய மொய் பதிவு"; $("saveBtn").textContent = "பதிவு செய்"; $("cancelBtn").hidden = true;
+  }
+  function startEdit(id) {
+    var e = state.entries.filter(function (x) { return x.id === id; })[0]; if (!e) return;
+    editId = id; armedId = null;
+    $("fName").value = e.name; $("fPlace").value = e.place; $("fRel").value = e.rel;
+    $("fAmt").value = e.amt || ""; $("fMode").value = e.mode; $("fNote").value = e.note;
+    $("formTitle").textContent = "பதிவைத் திருத்து"; $("saveBtn").textContent = "புதுப்பி"; $("cancelBtn").hidden = false;
+    $("form").scrollIntoView({ behavior: "smooth", block: "center" }); $("fName").focus(); render();
+  }
+
+  $("form").addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    var name = $("fName").value.trim(), amt = Math.round(Number($("fAmt").value) || 0), note = $("fNote").value.trim();
+    if (!name) { $("err").textContent = "பெயரை உள்ளிடுங்கள்."; $("fName").focus(); return; }
+    if (amt <= 0 && !note) { $("err").textContent = "தொகையை உள்ளிடுங்கள். பொருள் என்றால் குறிப்பில் எழுதுங்கள்."; $("fAmt").focus(); return; }
+    var data = { name: name, place: $("fPlace").value.trim(), rel: $("fRel").value.trim(), amt: amt, mode: $("fMode").value, note: note };
+    rememberPlace(data.place);
+    var newId = null;
+    if (editId) {
+      state.entries.forEach(function (x) { if (x.id === editId) { Object.assign(x, data); } });
+      toast("பதிவு புதுப்பிக்கப்பட்டது");
+    } else {
+      if (state.entries.some(function (x) { return x.sample; })) state.entries = state.entries.filter(function (x) { return !x.sample; });
+      if (state.event.title.indexOf("(மாதிரி)") !== -1) { state.event.title = ""; $("evTitle").value = ""; }
+      data.id = "e" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5); data.ts = Date.now();
+      state.entries.push(data); newId = data.id; toast(name + " – " + money(amt) + " சேர்க்கப்பட்டது");
+    }
+    save(); resetForm(); render();
+    if (newId && state.receiptOn !== false) { showReceipt(newId, true); } else { $("fName").focus(); }
+  });
+  $("cancelBtn").addEventListener("click", function () { resetForm(); render(); });
+
+  var chips = $("chips");
+  QUICK.forEach(function (v) {
+    var b = el("button", "chip num", "₹" + v.toLocaleString("en-IN")); b.type = "button";
+    b.addEventListener("click", function () { $("fAmt").value = v; });
+    chips.appendChild(b);
+  });
+
+  $("q").addEventListener("input", render);
+  $("fFilter").addEventListener("change", render);
+  $("clearSample").addEventListener("click", function () {
+    state.entries = state.entries.filter(function (x) { return !x.sample; });
+    if (state.event.title.indexOf("(மாதிரி)") !== -1) { state.event.title = ""; $("evTitle").value = ""; }
+    save(); render();
+  });
+  $("evTitle").addEventListener("input", function () { state.event.title = this.value; save(); });
+  $("evDate").addEventListener("input", function () { state.event.date = this.value; save(); });
+
+  // Receipt (ரசீது): on-screen slip, PNG for printing, WhatsApp text.
+  var rcId = null;
+  function receiptData(e) {
+    var no = sortedEntries().map(function (x) { return x.id; }).indexOf(e.id) + 1;
+    var rows = [["பெயர்", e.name]];
+    if (e.place) rows.push(["ஊர்", e.place]);
+    if (e.rel) rows.push(["உறவு", e.rel]);
+    rows.push(["முறை", e.mode]);
+    if (e.note) rows.push(["குறிப்பு", e.note]);
+    return {
+      no: no, rows: rows, amount: e.amt, date: state.event.date || "",
+      title: state.event.title || "மொய் கணக்கு",
+      when: new Date(e.ts).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })
+    };
+  }
+  function receiptText(d) {
+    return "*" + d.title + "*\nமொய் ரசீது எண்: " + d.no + "\n" +
+      d.rows.map(function (r) { return r[0] + ": " + r[1]; }).join("\n") +
+      "\nதொகை: " + money(d.amount) + "\n" + d.when + "\nமனமார்ந்த நன்றி";
+  }
+  function showReceipt(id, scroll) {
+    var e = state.entries.filter(function (x) { return x.id === id; })[0]; if (!e) return;
+    rcId = id;
+    var d = receiptData(e), slip = $("slip"); slip.textContent = "";
+    slip.appendChild(el("div", "s-title", d.title));
+    if (d.date) slip.appendChild(el("div", "s-sub num", d.date));
+    slip.appendChild(el("div", "s-head", "மொய் ரசீது"));
+    slip.appendChild(el("div", "s-sub num", "எண்: " + d.no + " · " + d.when));
+    slip.appendChild(el("hr", "s-rule"));
+    d.rows.forEach(function (r) {
+      var row = el("div", "s-row"); row.appendChild(el("span", "", r[0])); row.appendChild(el("span", "", r[1])); slip.appendChild(row);
+    });
+    slip.appendChild(el("hr", "s-rule"));
+    slip.appendChild(el("div", "s-sub", "தொகை"));
+    slip.appendChild(el("div", "s-amt num", money(d.amount)));
+    slip.appendChild(el("hr", "s-rule"));
+    slip.appendChild(el("div", "s-thanks", "மனமார்ந்த நன்றி"));
+    $("waReceipt").href = "https://wa.me/?text=" + encodeURIComponent(receiptText(d));
+    $("receipt").hidden = false;
+    if (scroll) $("receipt").scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+  function wrapText(ctx, text, maxW) {
+    var words = String(text).split(/\s+/), lines = [], cur = "";
+    words.forEach(function (w) {
+      var t = cur ? cur + " " + w : w;
+      if (ctx.measureText(t).width > maxW && cur) { lines.push(cur); cur = w; } else { cur = t; }
+    });
+    if (cur) lines.push(cur);
+    return lines;
+  }
+  function drawReceipt(d) {
+    var fonts = (document.fonts && document.fonts.load) ? Promise.all([
+      document.fonts.load('700 30px "Noto Serif Tamil"', "மொய்"),
+      document.fonts.load('600 24px "Noto Sans Tamil"', "மொய்"),
+      document.fonts.load('400 20px "Noto Sans Tamil"', "மொய்")
+    ]).catch(function () {}) : Promise.resolve();
+    return fonts.then(function () {
+      var W = 576, S = 2, H = 2400, pad = 30;
+      var serif = '"Noto Serif Tamil","Latha",serif', sans = '"Noto Sans Tamil","Latha",sans-serif';
+      var tmp = document.createElement("canvas"); tmp.width = W * S; tmp.height = H * S;
+      var x = tmp.getContext("2d"); x.scale(S, S);
+      x.fillStyle = "#ffffff"; x.fillRect(0, 0, W, H);
+      var y = pad;
+      function rule() {
+        y += 12; x.save(); x.strokeStyle = "#777777"; x.lineWidth = 2; x.setLineDash([8, 6]);
+        x.beginPath(); x.moveTo(pad, y); x.lineTo(W - pad, y); x.stroke(); x.restore(); y += 14;
+      }
+      function center(text, weight, size, family, color) {
+        x.font = weight + " " + size + "px " + family; x.fillStyle = color; x.textAlign = "center";
+        wrapText(x, text, W - 2 * pad).forEach(function (l) { y += size * 1.35; x.fillText(l, W / 2, y); });
+      }
+      center(d.title, "700", 30, serif, "#111111");
+      if (d.date) center(d.date, "400", 20, sans, "#444444");
+      rule();
+      center("மொய் ரசீது", "600", 26, sans, "#111111");
+      center("எண்: " + d.no + " · " + d.when, "400", 19, sans, "#444444");
+      rule();
+      d.rows.forEach(function (r) {
+        x.textAlign = "left"; x.font = "400 22px " + sans; x.fillStyle = "#444444";
+        var yy = y + 34; x.fillText(r[0], pad, yy);
+        x.font = "600 24px " + sans; x.fillStyle = "#111111";
+        var ls = wrapText(x, r[1], W - 2 * pad - 120);
+        ls.forEach(function (l, i) { x.fillText(l, pad + 120, yy + i * 32); });
+        y = yy + (ls.length - 1) * 32 + 6;
+      });
+      rule();
+      center("தொகை", "400", 22, sans, "#444444");
+      center(money(d.amount), "700", 58, sans, "#111111");
+      y += 6; rule();
+      center("மனமார்ந்த நன்றி", "600", 26, serif, "#111111");
+      y += pad;
+      var out = document.createElement("canvas"); out.width = W * S; out.height = Math.ceil(y * S);
+      out.getContext("2d").drawImage(tmp, 0, 0, W * S, out.height, 0, 0, W * S, out.height);
+      return out;
+    });
+  }
+  $("rcPng").addEventListener("click", function () {
+    if (!dl) return;
+    var e = state.entries.filter(function (x) { return x.id === rcId; })[0]; if (!e) return;
+    var d = receiptData(e);
+    drawReceipt(d).then(function (c) {
+      c.toBlob(function (blob) {
+        if (!blob) { toast("ரசீது படத்தை உருவாக்க முடியவில்லை"); return; }
+        dl.save({ filename: "moi-rasid-" + d.no + ".jpg", data: blob }).then(
+          function () { toast(isNative ? "ரசீது பகிரப்பட்டது" : "JPG சேமிக்கப்பட்டது"); },
+          function (err) { if (err && err.code === "declined") return; toast("ரசீதைச் சேமிக்க முடியவில்லை"); }
+        );
+      }, "image/jpeg", 0.92);
+    }, function () { toast("ரசீது படத்தை உருவாக்க முடியவில்லை"); });
+  });
+  $("rcClose").addEventListener("click", function () { rcId = null; $("receipt").hidden = true; });
+  $("fReceipt").addEventListener("change", function () { state.receiptOn = this.checked; save(); });
+
+  // Excel download (downloads capability) and WhatsApp text share (wa.me link).
+  var dl = null;
+  function sortedEntries() { return state.entries.slice().sort(function (a, b) { return a.ts - b.ts; }); }
+  function sums() {
+    var r = { total: 0, cash: 0, online: 0 };
+    state.entries.forEach(function (e) {
+      r.total += e.amt;
+      if (e.mode === "ரொக்கம்") r.cash += e.amt; else if (e.mode !== "பொருள்") r.online += e.amt;
+    });
+    return r;
+  }
+  function shareText() {
+    var s = sums();
+    var head = "*" + (state.event.title || "மொய் கணக்கு") + "*" + (state.event.date ? " (" + state.event.date + ")" : "") +
+      "\nமொத்த மொய்: " + money(s.total) + " (" + state.entries.length + " பதிவுகள்)" +
+      "\nரொக்கம்: " + money(s.cash) + " | GPay/காசோலை: " + money(s.online) + "\n";
+    var lines = [], used = encodeURIComponent(head).length, hidden = 0;
+    sortedEntries().forEach(function (e, i) {
+      var line = (i + 1) + ". " + e.name + (e.place ? " (" + e.place + ")" : "") + " - " + money(e.amt);
+      var len = encodeURIComponent("\n" + line).length;
+      if (hidden === 0 && used + len < 5500) { lines.push(line); used += len; } else { hidden++; }
+    });
+    return head + (lines.length ? "\n" + lines.join("\n") : "") +
+      (hidden ? "\n...மேலும் " + hidden + " பதிவுகள் (முழுப் பட்டியல் Excel கோப்பில்)" : "");
+  }
+  function updateShare() { $("waLink").href = "https://wa.me/?text=" + encodeURIComponent(shareText()); }
+  function buildWorkbook() {
+    var s = sums(), list = sortedEntries();
+    var aoa = [[state.event.title || "மொய் கணக்கு"], ["நாள்", state.event.date || ""], [], ["வ.எண்", "பெயர்", "ஊர்", "உறவு", "தொகை (₹)", "முறை", "குறிப்பு"]];
+    list.forEach(function (e, i) { aoa.push([i + 1, e.name, e.place, e.rel, e.amt, e.mode, e.note]); });
+    var last = 4 + list.length;
+    aoa.push([]); aoa.push(["", "", "", "மொத்தம்", s.total]);
+    var ws = XLSX.utils.aoa_to_sheet(aoa);
+    if (list.length) ws["E" + aoa.length] = { t: "n", v: s.total, f: "SUM(E5:E" + last + ")" };
+    ws["!cols"] = [{ wch: 7 }, { wch: 22 }, { wch: 18 }, { wch: 14 }, { wch: 12 }, { wch: 14 }, { wch: 28 }];
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "மொய் கணக்கு");
+    return wb;
+  }
+  $("xlsBtn").addEventListener("click", function () {
+    if (!dl) return;
+    if (!state.entries.length) { toast("முதலில் பதிவுகளைச் சேர்க்கவும்"); return; }
+    if (!window.XLSX) { toast("Excel கருவி ஏற்றப்படவில்லை. இணைய இணைப்பைப் பாருங்கள்."); return; }
+    var data;
+    try { data = XLSX.write(buildWorkbook(), { bookType: "xlsx", type: "array" }); }
+    catch (e) { toast("Excel கோப்பை உருவாக்க முடியவில்லை"); return; }
+    var stamp = state.event.date || new Date().toISOString().slice(0, 10);
+    dl.save({ filename: "moi-kanakku-" + stamp + ".xlsx", data: data }).then(
+      function () { toast(isNative ? "Excel கோப்பு பகிரப்பட்டது" : "Excel கோப்பு சேமிக்கப்பட்டது"); },
+      function (err) { if (err && err.code === "declined") return; toast("Excel சேமிக்க முடியவில்லை. CSV நகலெடுத்துப் பாருங்கள்."); }
+    );
+  });
+
+  function copyText(text, okMsg, area) {
+    function fallback() {
+      area.value = text; area.focus(); area.select();
+      toast("நகலெடுக்க முடியவில்லை. கீழே உள்ள பெட்டியில் தேர்ந்தெடுத்து நகலெடுங்கள்.");
+    }
+    try {
+      navigator.clipboard.writeText(text).then(function () { toast(okMsg); }, fallback);
+    } catch (e) { fallback(); }
+  }
+  function csvCell(v) { v = String(v == null ? "" : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
+  $("copyCsv").addEventListener("click", function () {
+    var head = ["வ.எண்", "பெயர்", "ஊர்", "உறவு", "தொகை", "முறை", "குறிப்பு"];
+    var rows = state.entries.slice().sort(function (a, b) { return a.ts - b.ts; }).map(function (e, i) {
+      return [i + 1, e.name, e.place, e.rel, e.amt, e.mode, e.note].map(csvCell).join(",");
+    });
+    var total = state.entries.reduce(function (s, e) { return s + e.amt; }, 0);
+    copyText([head.join(",")].concat(rows, ["", ",,,மொத்தம்," + total]).join("\n"), "CSV நகலெடுக்கப்பட்டது", $("restoreBox"));
+  });
+  $("copyBackup").addEventListener("click", function () {
+    copyText(JSON.stringify(state), "காப்புப் பிரதி நகலெடுக்கப்பட்டது", $("restoreBox"));
+  });
+  $("restoreBtn").addEventListener("click", function () {
+    var err = $("toolErr"); err.textContent = "";
+    try {
+      var s = JSON.parse($("restoreBox").value);
+      if (!s || !Array.isArray(s.entries)) throw new Error("bad");
+      state = { event: s.event || { title: "", date: "" }, places: Array.isArray(s.places) ? s.places.map(String) : [], entries: s.entries.map(function (e) {
+        return { id: String(e.id || Math.random()), name: String(e.name || ""), place: String(e.place || ""), rel: String(e.rel || ""), amt: Number(e.amt) || 0, mode: String(e.mode || "ரொக்கம்"), note: String(e.note || ""), ts: Number(e.ts) || Date.now(), sample: false };
+      }) };
+      save(); init(); toast("தரவு மீட்கப்பட்டது");
+    } catch (e) { err.textContent = "காப்புப் பிரதி சரியாக இல்லை. முழு உரையையும் ஒட்டுங்கள்."; }
+  });
+  $("wipeBtn").addEventListener("click", function () {
+    var b = this;
+    if (!wipeArmed) { wipeArmed = true; b.textContent = "உறுதி: அனைத்தையும் அழி"; b.classList.add("armed"); return; }
+    state = { event: { title: "", date: "" }, places: [], entries: [] };
+    wipeArmed = false; b.textContent = "அனைத்தையும் அழி"; b.classList.remove("armed");
+    save(); init(); toast("அனைத்தும் அழிக்கப்பட்டது");
+  });
+
+  function init() {
+    $("evTitle").value = state.event.title || ""; $("evDate").value = state.event.date || "";
+    resetForm(); render();
+  }
+  load(); init();
+  // Saving files: Android app uses the native share sheet (WhatsApp, printer apps); a plain browser downloads the file.
+  function nativeSaver() {
+    var P = window.Capacitor && window.Capacitor.Plugins;
+    if (!P || !P.Filesystem || !P.Share) return null;
+    function toBase64(data) {
+      return new Promise(function (res, rej) {
+        var blob = data instanceof Blob ? data : new Blob([data]);
+        var r = new FileReader();
+        r.onload = function () { res(String(r.result).split(",")[1]); };
+        r.onerror = function () { rej(r.error); };
+        r.readAsDataURL(blob);
+      });
+    }
+    return { save: function (o) {
+      return toBase64(o.data).then(function (b64) {
+        return P.Filesystem.writeFile({ path: o.filename, data: b64, directory: "CACHE" });
+      }).then(function (f) {
+        return P.Share.share({ title: o.filename, files: [f.uri], dialogTitle: "பகிர்" });
+      }).then(function () { return { status: "saved" }; }, function (err) {
+        var m = String((err && err.message) || err);
+        throw { code: /cancel/i.test(m) ? "declined" : "unavailable", message: m };
+      });
+    } };
+  }
+  function browserSaver() {
+    return { save: function (o) {
+      return new Promise(function (res) {
+        var blob = o.data instanceof Blob ? o.data : new Blob([o.data]);
+        var a = document.createElement("a");
+        a.href = URL.createObjectURL(blob); a.download = o.filename;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+        res({ status: "saved" });
+      });
+    } };
+  }
+  var isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  dl = (isNative && nativeSaver()) || browserSaver();
+  if (isNative) {
+    $("rcHint").textContent = "\"JPG படமாக அனுப்பு\" தொட்டால் share திரை திறக்கும். அதில் WhatsApp-ஐத் தேர்ந்தெடுத்து நபரைக் குறிக்கவும். அதே திரையில் printer app-ஐயும் தேர்ந்தெடுக்கலாம்.";
+  }
+})();
+</script>
